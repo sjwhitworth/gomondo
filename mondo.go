@@ -47,6 +47,10 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 401 {
+		return nil, ErrUnauthenticatedRequest
+	}
+
 	tresp := tokenResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -75,6 +79,13 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 // ExpiresAt returns the time that the current oauth token expires and will have to be refreshed.
 func (m *MondoClient) ExpiresAt() time.Time {
 	return m.expiryTime
+}
+func (m *MondoClient) Authenticated() bool {
+	if time.Now().Before(m.ExpiresAt()) {
+		return true
+	}
+	m.authenticated = false
+	return m.authenticated
 }
 
 // callWithAuth makes authenticated calls to the Mondo API.
@@ -106,6 +117,7 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 		}
 
 		if resp.StatusCode == 401 {
+			m.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 
@@ -128,6 +140,7 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 		}
 
 		if resp.StatusCode == 401 {
+			m.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 	}
