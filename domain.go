@@ -41,7 +41,7 @@ type Transaction struct {
 	Merchant       Merchant               `json:"merchant"`
 	Metadata       map[string]interface{} `json:"metadata"`
 	Notes          string                 `json:"notes"`
-	Settled        string                 `json:"settled"`
+	Settled        bool                   `json:"settled"`
 }
 
 type Merchant struct {
