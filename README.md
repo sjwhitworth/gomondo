@@ -2,6 +2,8 @@
 
 Package go-mondo provides Go bindings for the Mondo banking app and marshals them into native data structures with full support for Mondo objects like Transactions, Merchants and Addresses. It makes no assumptions regarding your use case. Thus pagination, retries and oauth refresh are not supported.
 
+![pDpOAr](http://cdn.makeagif.com/media/11-29-2015/pDpOAr.gif)
+
 ## Supported
 
 * OAuth2 authentication
