@@ -149,7 +149,7 @@ func (m *MondoClient) Transactions(accountId, since, before string, limit int) (
 		"before":     before,
 	}
 
-	resp, err := m.callWithAuth("GET", fmt.Sprintf("transactions"), params)
+	resp, err := m.callWithAuth("GET", "transactions", params)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 		"params[body]":             body,
 	}
 
-	resp, err := m.callWithAuth("POST", fmt.Sprintf("feed"), params)
+	resp, err := m.callWithAuth("POST", "feed", params)
 	if err != nil {
 		return err
 	}
