@@ -1,6 +1,6 @@
 # go-mondo
 
-Package go-mondo provides Go bindings for the Mondo banking app and marshals them into native data structures with full support for Mondo objects like Transactions, Merchants and Addresses. It makes no assumptions regarding your use case. Thus pagination, retries and oauth refresh are not supported. The full documentation for the API is available [here.](https://getmondo.co.uk/docs)
+Package go-mondo provides Go bindings for the Mondo banking app and marshals them into native data structures with full support for Mondo objects like Transactions, Merchants and Addresses. It makes no assumptions regarding your use case. Thus, strategies for pagination, retries and refreshing oauth tokens are left for the caller to decide upon. The full documentation for the API is available [here.](https://getmondo.co.uk/docs)
 
 ![pDpOAr](http://cdn.makeagif.com/media/11-29-2015/pDpOAr.gif)
 
@@ -41,8 +41,6 @@ A larger example of how to use the client is provided in the bankterm example. I
 
 ## Things still to do
 
-* Add metadata to transactions
-* Support attachments to transactions
 * Greater client test coverage
 
 
