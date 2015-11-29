@@ -20,6 +20,9 @@ var (
 
 	// 401 response code
 	ErrUnauthenticatedRequest = fmt.Errorf("your request was not sent with a valid token")
+
+	// No transaction found
+	ErrNoTransactionFound = fmt.Errorf("no transaction found with ID")
 )
 
 type MondoClient struct {
@@ -46,6 +49,10 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return nil, ErrUnauthenticatedRequest
+	}
 
 	tresp := tokenResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -75,6 +82,13 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 // ExpiresAt returns the time that the current oauth token expires and will have to be refreshed.
 func (m *MondoClient) ExpiresAt() time.Time {
 	return m.expiryTime
+}
+func (m *MondoClient) Authenticated() bool {
+	if time.Now().Before(m.ExpiresAt()) {
+		return true
+	}
+	m.authenticated = false
+	return m.authenticated
 }
 
 // callWithAuth makes authenticated calls to the Mondo API.
@@ -106,6 +120,7 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 		}
 
 		if resp.StatusCode == 401 {
+			m.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 
@@ -128,6 +143,7 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 		}
 
 		if resp.StatusCode == 401 {
+			m.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 	}
@@ -181,6 +197,10 @@ func (m *MondoClient) TransactionByID(accountId, transactionId string) (*Transac
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 404 {
+		return nil, ErrNoTransactionFound
+	}
+
 	tresp := transactionByIDResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(b, &tresp); err != nil {
@@ -228,10 +248,6 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 
 	if title == "" {
 		return fmt.Errorf("title cannot be empty")
-	}
-
-	if body == "" {
-		return fmt.Errorf("body cannot be empty")
 	}
 
 	if bgColor == "" {
