@@ -20,6 +20,9 @@ var (
 
 	// 401 response code
 	ErrUnauthenticatedRequest = fmt.Errorf("your request was not sent with a valid token")
+
+	// No transaction found
+	ErrNoTransactionFound = fmt.Errorf("no transaction found with ID")
 )
 
 type MondoClient struct {
@@ -194,6 +197,10 @@ func (m *MondoClient) TransactionByID(accountId, transactionId string) (*Transac
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 404 {
+		return nil, ErrNoTransactionFound
+	}
+
 	tresp := transactionByIDResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(b, &tresp); err != nil {
@@ -241,10 +248,6 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 
 	if title == "" {
 		return fmt.Errorf("title cannot be empty")
-	}
-
-	if body == "" {
-		return fmt.Errorf("body cannot be empty")
 	}
 
 	if bgColor == "" {
