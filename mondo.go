@@ -277,8 +277,87 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 	return nil
 }
 
-func (m *MondoClient) RegisterWebhook(URL string) error {
-	return nil
+// Registers a web hook. Each time a matching event occurs, we will make a POST call to the URL you provide. If the call fails, we will retry up to a maximum of 5 attempts, with exponential backoff.
+func (m *MondoClient) RegisterWebhook(accountId, URL string) (*Webhook, error) {
+	type registerWebhookResponse struct {
+		Webhook Webhook `json:"webhook"`
+	}
+
+	if accountId == "" {
+		return nil, fmt.Errorf("accountId cannot be empty")
+	}
+
+	if URL == "" {
+		return nil, fmt.Errorf("URL cannot be empty")
+	}
+
+	params := map[string]string{
+		"account_id": accountId,
+		"url":        URL,
+	}
+
+	resp, err := m.callWithAuth("POST", "webhooks", params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var wresp registerWebhookResponse
+	b, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(b, &wresp); err != nil {
+		return nil, err
+	}
+
+	return &wresp.Webhook, nil
+}
+
+// Deletes a web hook. When you delete a web hook, we will no longer send notifications to it.
+func (m *MondoClient) DeleteWebhook(webhookId string) error {
+	if webhookId == "" {
+		return fmt.Errorf("webhookId cannot be empty")
+	}
+
+	_, err := m.callWithAuth("DELETE", fmt.Sprintf("webhooks/%s", webhookId), nil)
+	return err
+}
+
+// Registers an attachment. Once you have obtained a URL for an attachment, either by uploading to the upload_url obtained from the upload endpoint above or by hosting a remote image, this URL can then be registered against a transaction. Once an attachment is registered against a transaction this will be displayed on the detail page of a transaction within the Mondo app.
+func (m *MondoClient) RegisterAttachment(externalId, fileURL, fileType string) (*Attachment, error) {
+	type registerAttachmentResponse struct {
+		Attachment Attachment `json:"attachment"`
+	}
+
+	if externalId == "" {
+		return nil, fmt.Errorf("externalId cannot be empty")
+	}
+
+	if fileURL == "" {
+		return nil, fmt.Errorf("fileURL cannot be empty")
+	}
+
+	if fileType == "" {
+		return nil, fmt.Errorf("fileType cannot be empty")
+	}
+
+	params := map[string]string{
+		"external_id": externalId,
+		"file_type":   fileType,
+		"file_url":    fileURL,
+	}
+
+	resp, err := m.callWithAuth("POST", "attachment/register", params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var aresp registerAttachmentResponse
+	b, err := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal(b, &aresp); err != nil {
+		return nil, err
+	}
+
+	return &aresp.Attachment, nil
 }
 
 func buildUrl(path string) string {
