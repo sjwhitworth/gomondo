@@ -69,3 +69,31 @@ type MerchantAddress struct {
 	ShortFormatted string  `json:"short_formatted"`
 	ZoomLevel      int     `json:"zoom_level"`
 }
+
+type Webhook struct {
+	AccountId string `json:"account_id"`
+	Id        string `json:"id"`
+	Url       string `json:"url"`
+}
+
+type Attachment struct {
+	Id         string `json:"id"`
+	UserId     string `json:"user_id"`
+	ExternalId string `json:"external_id"`
+	FileUrl    string `json:"file_url"`
+	FileType   string `json:"file_type"`
+	Created    string `json:"created"`
+}
+
+type WebhookRequest struct {
+	Type string      `json:"type"`
+	Data WebhookData `json:"data"`
+}
+
+type WebhookData struct {
+	Amount      int32  `json:"amount"`
+	Created     string `json:"created"`
+	Currency    string `json:"currency"`
+	Description string `json:"description"`
+	Id          string `json:"id"`
+}
