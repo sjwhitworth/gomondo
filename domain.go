@@ -86,14 +86,6 @@ type Attachment struct {
 }
 
 type WebhookRequest struct {
-	Type string      `json:"type"`
-	Data WebhookData `json:"data"`
-}
-
-type WebhookData struct {
-	Amount      int32  `json:"amount"`
-	Created     string `json:"created"`
-	Currency    string `json:"currency"`
-	Description string `json:"description"`
-	Id          string `json:"id"`
+	Type string       `json:"type"`
+	Data *Transaction `json:"data"`
 }
