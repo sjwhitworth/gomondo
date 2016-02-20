@@ -14,7 +14,7 @@ Package go-mondo provides Go bindings for the Mondo banking app and marshals the
 
 ## Example
 
-```
+```go
 client, err := mondo.Authenticate(clientId, clientSecret, userName, password)
 if err != nil {
   return err
@@ -33,8 +33,16 @@ accountId := acs[0].ID
 
 // Get all transactions. You can also get a specific transaction by ID.
 transactions, err := client.Transactions(accountId, "", "", 100)
+if err != nil {
+  return err
+}
+log.Infof("%#v", transactions)
 
-client.CreateFeedItem(id, "Morning!", "https://blog.golang.org/gopher/gopher.png", "", t "", "", "Hi, from Mondo Go!)
+// Create new feed item
+err := client.CreateFeedItem(accountId, "Morning!", "https://blog.golang.org/gopher/gopher.png", "", "", "", "Hi from go-mondo!")
+if err != nil {
+  return err
+}
 ```
 
 A larger example of how to use the client is provided in the bankterm example. It takes your last 100 Mondo transactions and prints them to a table in your terminal.
