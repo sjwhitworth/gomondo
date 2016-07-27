@@ -101,7 +101,7 @@ func TestTransactions(t *testing.T) {
 			            "metadata": {},
 			            "notes": "Salmon sandwich 🍞",
 			            "is_load": false,
-			            "settled": true,
+			            "settled": "2015-08-23T12:20:18Z",
 			            "category": "eating_out"
 			        },
 			        {
@@ -132,7 +132,7 @@ func TestTransactions(t *testing.T) {
 			            "metadata": {},
 			            "notes": "",
 			            "is_load": false,
-			            "settled": true,
+			            "settled": "2015-08-23T12:20:18Z",
 			            "category": "eating_out"
 			        }]}
 `)
@@ -196,7 +196,7 @@ func TestTransactionByID(t *testing.T) {
 			            "metadata": {},
 			            "notes": "Salmon sandwich 🍞",
 			            "is_load": false,
-			            "settled": true,
+			            "settled": "2015-08-23T12:20:18Z",
 			            "category": "eating_out"
 			        }}
 `)
