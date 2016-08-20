@@ -1,8 +1,9 @@
-// Package go-mondo provides a Go interface for interacting with the Mondo API.
+// Package go-mondo provides a Go wrapper for the Mondo API.
 package mondo
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,33 +13,32 @@ import (
 )
 
 var (
-	// The root URL we will base all queries off of. Currently only production is supported.
-	BaseMondoURL = "https://production-api.gmon.io"
+	// The root URL
+	baseEndpoint = "https://production-api.gmon.io"
 
-	// OAuth grant type.
-	GrantTypePassword = "password"
+	grantTypePassword = "password"
 
 	// 401 response code
-	ErrUnauthenticatedRequest = fmt.Errorf("your request was not sent with a valid token")
+	ErrUnauthenticatedRequest = errors.New("mondo: your request was not sent with a valid token")
 
 	// No transaction found
-	ErrNoTransactionFound = fmt.Errorf("no transaction found with ID")
+	ErrNoTransactionFound = errors.New("mondo: no transaction found with ID")
 )
 
-type MondoClient struct {
+type Client struct {
 	accessToken   string
 	authenticated bool
 	expiryTime    time.Time
 }
 
-// Function Authenticate authenticates the user using the oath flow, returning an authenticated MondoClient
-func Authenticate(clientId, clientSecret, username, password string) (*MondoClient, error) {
+// Function Authenticate authenticates the user using the oath flow, returning an authenticated Client
+func Authenticate(clientId, clientSecret, username, password string) (*Client, error) {
 	if clientId == "" || clientSecret == "" || username == "" || password == "" {
 		return nil, fmt.Errorf("zero value passed to Authenticate")
 	}
 
 	values := url.Values{}
-	values.Set("grant_type", GrantTypePassword)
+	values.Set("grant_type", grantTypePassword)
 	values.Set("client_id", clientId)
 	values.Set("client_secret", clientSecret)
 	values.Set("username", username)
@@ -72,7 +72,7 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 		return nil, fmt.Errorf("failed to scan response correctly")
 	}
 
-	return &MondoClient{
+	return &Client{
 		authenticated: true,
 		accessToken:   tresp.AccessToken,
 		expiryTime:    time.Now().Add(time.Duration(tresp.ExpiresIn) * time.Second),
@@ -80,25 +80,25 @@ func Authenticate(clientId, clientSecret, username, password string) (*MondoClie
 }
 
 // ExpiresAt returns the time that the current oauth token expires and will have to be refreshed.
-func (m *MondoClient) ExpiresAt() time.Time {
-	return m.expiryTime
+func (c *Client) ExpiresAt() time.Time {
+	return c.expiryTime
 }
-func (m *MondoClient) Authenticated() bool {
-	if time.Now().Before(m.ExpiresAt()) {
+
+func (c *Client) Authenticated() bool {
+	if time.Now().Before(c.ExpiresAt()) {
 		return true
 	}
-	m.authenticated = false
-	return m.authenticated
+	c.authenticated = false
+	return c.authenticated
 }
 
 // callWithAuth makes authenticated calls to the Mondo API.
-func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]string) (*http.Response, error) {
+func (c *Client) callWithAuth(methodType, URL string, params map[string]string) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 
-	// TODO: This is so hacky, clean up
 	switch methodType {
-	case "GET":
+	case http.MethodGet:
 		req, err := http.NewRequest(methodType, buildUrl(URL), nil)
 		if err != nil {
 			return nil, err
@@ -113,18 +113,18 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 			req.URL.RawQuery = query.Encode()
 		}
 
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", m.accessToken))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", c.accessToken))
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
 
 		if resp.StatusCode == 401 {
-			m.authenticated = false
+			c.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 
-	case "POST":
+	case http.MethodPost:
 		form := url.Values{}
 		for k, v := range params {
 			form.Set(k, v)
@@ -136,14 +136,14 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 		}
 
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", m.accessToken))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", c.accessToken))
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
 
 		if resp.StatusCode == 401 {
-			m.authenticated = false
+			c.authenticated = false
 			return nil, ErrUnauthenticatedRequest
 		}
 	}
@@ -152,11 +152,8 @@ func (m *MondoClient) callWithAuth(methodType, URL string, params map[string]str
 }
 
 // Transactions returns a slice of Transactions, with the merchant expanded within the Transaction. This endpoint supports pagination. To paginate, provide the last Transacation.ID to the since parameter of the function, if the length of the results that are returned is equal to your limit.
-func (m *MondoClient) Transactions(accountId, since, before string, limit int) ([]Transaction, error) {
-	type transactionsResponse struct {
-		Transactions []Transaction `json:"transactions"`
-	}
-
+// https://getmondo.co.uk/docs/#list-transactions
+func (c *Client) Transactions(accountId, since, before string, limit int) ([]*Transaction, error) {
 	params := map[string]string{
 		"account_id": accountId,
 		"expand[]":   "merchant",
@@ -165,7 +162,7 @@ func (m *MondoClient) Transactions(accountId, since, before string, limit int) (
 		"before":     before,
 	}
 
-	resp, err := m.callWithAuth("GET", "transactions", params)
+	resp, err := c.callWithAuth(http.MethodGet, "transactions", params)
 	if err != nil {
 		return nil, err
 	}
@@ -181,17 +178,13 @@ func (m *MondoClient) Transactions(accountId, since, before string, limit int) (
 }
 
 // TransactionByID obtains a Mondo Transaction by a specific transaction ID.
-func (m *MondoClient) TransactionByID(accountId, transactionId string) (*Transaction, error) {
-	type transactionByIDResponse struct {
-		Transaction Transaction `json:"transaction"`
-	}
-
+func (c *Client) TransactionByID(accountId, transactionId string) (*Transaction, error) {
 	params := map[string]string{
 		"account_id": accountId,
 		"expand[]":   "merchant",
 	}
 
-	resp, err := m.callWithAuth("GET", fmt.Sprintf("transactions/%s", transactionId), params)
+	resp, err := c.callWithAuth(http.MethodGet, fmt.Sprintf("transactions/%s", transactionId), params)
 	if err != nil {
 		return nil, err
 	}
@@ -201,21 +194,17 @@ func (m *MondoClient) TransactionByID(accountId, transactionId string) (*Transac
 		return nil, ErrNoTransactionFound
 	}
 
-	tresp := transactionByIDResponse{}
+	tresp := &transactionByIDResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err := json.Unmarshal(b, &tresp); err != nil {
 		return nil, err
 	}
 
-	return &tresp.Transaction, nil
+	return tresp.Transaction, nil
 }
 
-func (m *MondoClient) Accounts() ([]Account, error) {
-	type accountsResponse struct {
-		Accounts []Account `json:"accounts"`
-	}
-
-	resp, err := m.callWithAuth("GET", "accounts", nil)
+func (c *Client) Accounts() ([]*Account, error) {
+	resp, err := c.callWithAuth(http.MethodGet, "accounts", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -230,15 +219,32 @@ func (m *MondoClient) Accounts() ([]Account, error) {
 	return acresp.Accounts, nil
 }
 
-// CreateFeedItem creates a feed item in the user's application.
-// TODO: There is no way to delete a feed item currently, so use with caution.
-func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyColor, titleColor, body string) error {
-	type feedItemResponse struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
+func (c *Client) Balance(accountId string) (*Balance, error) {
+	r, err := c.callWithAuth(http.MethodGet, "balance", map[string]string{
+		"account_id": accountId,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+
+	bal := &Balance{}
+	b, err := ioutil.ReadAll(r.Body)
+	if err := json.Unmarshal(b, bal); err != nil {
+		return nil, err
 	}
 
-	if imageURL == "" {
+	return bal, nil
+}
+
+// CreateFeedItem creates a feed item in the user's application.
+func (c *Client) CreateFeedItem(accountId string, item *FeedItem) error {
+	if item == nil {
+		return errors.New("cannot pass nil item")
+	}
+
+	if item.ImageURL == "" {
 		return fmt.Errorf("imageURL cannot be empty")
 	}
 
@@ -246,34 +252,34 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 		return fmt.Errorf("accountId cannot be empty")
 	}
 
-	if title == "" {
+	if item.Title == "" {
 		return fmt.Errorf("title cannot be empty")
 	}
 
-	if bgColor == "" {
-		bgColor = "#FCF1EE"
+	if item.BgColor == "" {
+		item.BgColor = "#FCF1EE"
 	}
 
-	if bodyColor == "" {
-		bodyColor = "#FCF1EE"
+	if item.BodyColor == "" {
+		item.BodyColor = "#FCF1EE"
 	}
 
-	if titleColor == "" {
-		titleColor = "#333"
+	if item.TitleColor == "" {
+		item.TitleColor = "#333"
 	}
 
 	params := map[string]string{
 		"account_id":               accountId,
 		"type":                     "basic",
-		"params[title]":            title,
-		"params[image_url]":        imageURL,
-		"params[background_color]": bgColor,
-		"params[body_color]":       bodyColor,
-		"params[title_color]":      titleColor,
-		"params[body]":             body,
+		"params[title]":            item.Title,
+		"params[image_url]":        item.ImageURL,
+		"params[background_color]": item.BgColor,
+		"params[body_color]":       item.BodyColor,
+		"params[title_color]":      item.TitleColor,
+		"params[body]":             item.Body,
 	}
 
-	resp, err := m.callWithAuth("POST", "feed", params)
+	resp, err := c.callWithAuth(http.MethodPost, "feed", params)
 	if err != nil {
 		return err
 	}
@@ -294,7 +300,7 @@ func (m *MondoClient) CreateFeedItem(accountId, title, imageURL, bgColor, bodyCo
 }
 
 // Registers a web hook. Each time a matching event occurs, we will make a POST call to the URL you provide. If the call fails, we will retry up to a maximum of 5 attempts, with exponential backoff.
-func (m *MondoClient) RegisterWebhook(accountId, URL string) (*Webhook, error) {
+func (c *Client) RegisterWebhook(accountId, URL string) (*Webhook, error) {
 	type registerWebhookResponse struct {
 		Webhook Webhook `json:"webhook"`
 	}
@@ -312,7 +318,7 @@ func (m *MondoClient) RegisterWebhook(accountId, URL string) (*Webhook, error) {
 		"url":        URL,
 	}
 
-	resp, err := m.callWithAuth("POST", "webhooks", params)
+	resp, err := c.callWithAuth(http.MethodPost, "webhooks", params)
 	if err != nil {
 		return nil, err
 	}
@@ -328,21 +334,18 @@ func (m *MondoClient) RegisterWebhook(accountId, URL string) (*Webhook, error) {
 }
 
 // Deletes a web hook. When you delete a web hook, we will no longer send notifications to it.
-func (m *MondoClient) DeleteWebhook(webhookId string) error {
+func (c *Client) DeleteWebhook(webhookId string) error {
 	if webhookId == "" {
 		return fmt.Errorf("webhookId cannot be empty")
 	}
 
-	_, err := m.callWithAuth("DELETE", fmt.Sprintf("webhooks/%s", webhookId), nil)
+	path := fmt.Sprintf("webhooks/%s", webhookId)
+	_, err := c.callWithAuth(http.MethodDelete, path, nil)
 	return err
 }
 
 // Registers an attachment. Once you have obtained a URL for an attachment, either by uploading to the upload_url obtained from the upload endpoint above or by hosting a remote image, this URL can then be registered against a transaction. Once an attachment is registered against a transaction this will be displayed on the detail page of a transaction within the Mondo app.
-func (m *MondoClient) RegisterAttachment(externalId, fileURL, fileType string) (*Attachment, error) {
-	type registerAttachmentResponse struct {
-		Attachment Attachment `json:"attachment"`
-	}
-
+func (c *Client) RegisterAttachment(externalId, fileURL, fileType string) (*Attachment, error) {
 	if externalId == "" {
 		return nil, fmt.Errorf("externalId cannot be empty")
 	}
@@ -361,7 +364,7 @@ func (m *MondoClient) RegisterAttachment(externalId, fileURL, fileType string) (
 		"file_url":    fileURL,
 	}
 
-	resp, err := m.callWithAuth("POST", "attachment/register", params)
+	resp, err := c.callWithAuth(http.MethodGet, "attachment/register", params)
 	if err != nil {
 		return nil, err
 	}
@@ -376,6 +379,10 @@ func (m *MondoClient) RegisterAttachment(externalId, fileURL, fileType string) (
 	return &aresp.Attachment, nil
 }
 
+func SetBaseEndpoint(address string) {
+	baseEndpoint = address
+}
+
 func buildUrl(path string) string {
-	return fmt.Sprintf("%v/%v", BaseMondoURL, path)
+	return fmt.Sprintf("%v/%v", baseEndpoint, path)
 }

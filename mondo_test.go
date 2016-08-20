@@ -20,7 +20,7 @@ func setup() {
 	mux = http.NewServeMux()
 	server = httptest.NewServer(mux)
 	servUrl, _ := url.Parse(server.URL)
-	BaseMondoURL = servUrl.String()
+	baseEndpoint = servUrl.String()
 
 	// Bake an auth request into the server to return a client
 	mux.HandleFunc("/oauth2/token",
@@ -261,10 +261,14 @@ func TestCreateItem(t *testing.T) {
 	client, err := Authenticate("some", "valid", "credentials", "here")
 	assert.NoError(t, err)
 
-	err = client.CreateFeedItem("account1", "Hello!", "http://www.gophers.com/gopher1.png", "", "", "", "A body goes here")
+	err = client.CreateFeedItem("account1", &FeedItem{
+		Title:    "Hello!",
+		ImageURL: "http://www.gophers.com/gopher1.png",
+		Body:     "A body goes here",
+	})
 	assert.NoError(t, err)
 
-	err = client.CreateFeedItem("", "", "", "", "", "", "")
+	err = client.CreateFeedItem("", nil)
 	assert.Error(t, err)
 }
 

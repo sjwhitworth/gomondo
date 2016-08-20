@@ -33,7 +33,7 @@ type Transaction struct {
 	Amount         int                    `json:"amount"`
 	Attachments    []interface{}          `json:"attachments"`
 	Category       string                 `json:"category"`
-	Created        string                 `json:"created"`
+	Created        time.Time              `json:"created"`
 	Currency       string                 `json:"currency"`
 	Description    string                 `json:"description"`
 	ID             string                 `json:"id"`
@@ -88,4 +88,19 @@ type Attachment struct {
 type WebhookRequest struct {
 	Type string       `json:"type"`
 	Data *Transaction `json:"data"`
+}
+
+type FeedItem struct {
+	Title      string
+	ImageURL   string
+	BgColor    string
+	BodyColor  string
+	TitleColor string
+	Body       string
+}
+
+type Balance struct {
+	Balance    int64  `json:"balance"`
+	Currency   string `json:"currency"`
+	SpendToday int64  `json:"spend_today"`
 }
