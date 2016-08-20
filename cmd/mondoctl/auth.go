@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sjwhitworth/gomondo"
+	mondo "github.com/sjwhitworth/gomondo"
 )
 
 func init() { RegisterCommand("login", auth{}) }

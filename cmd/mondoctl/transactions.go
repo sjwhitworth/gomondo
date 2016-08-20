@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/sjwhitworth/gomondo"
+	mondo "github.com/sjwhitworth/gomondo"
 )
 
 func init() {

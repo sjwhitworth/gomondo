@@ -11,7 +11,7 @@ import (
 	"log"
 
 	"github.com/peterh/liner"
-	"github.com/sjwhitworth/gomondo"
+	mondo "github.com/sjwhitworth/gomondo"
 )
 
 type Command interface {
